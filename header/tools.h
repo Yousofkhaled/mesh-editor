@@ -6,16 +6,19 @@
 // constants
 constexpr float global_sensetivity = 0.01f;
 
+void tools_input(Camera3D& camera, Vector3& forward_vector);
+
 void tool_pan_input(Camera3D& camera, Vector3 forward_vector);
 void tool_zoom_input(Camera3D& camera, Vector3 forward_vector);
 void tool_rotate_input(Camera3D& camera, Vector3& forward_vector);
-void tools_input(Camera3D& camera, Vector3& forward_vector);
+void reset_scene(Camera3D& camera, Vector3& forward_vector);
 
 void tools_input(Camera3D& camera, Vector3& forward_vector)
 {
     tool_pan_input(camera, forward_vector);
     tool_zoom_input(camera, forward_vector);
     tool_rotate_input(camera, forward_vector);
+    reset_scene(camera, forward_vector);
 }
 
 void tool_pan_input(Camera3D& camera, Vector3 forward_vector)
@@ -83,6 +86,17 @@ void tool_rotate_input(Camera3D& camera, Vector3& forward_vector)
         forward_vector = Vector3Transform(forward_vector, direction_rotate_transform);
         camera.up = Vector3Transform(camera.up, direction_rotate_transform);
 
+        camera.target = camera.position + forward_vector;
+    }
+}
+
+void reset_scene(Camera3D& camera, Vector3& forward_vector)
+{
+    if (IsKeyPressed(KEY_R))
+    {
+        forward_vector = {0, 0, -1};
+        camera.position = (Vector3){ 0.0f, 0.0f, 10.0f };   
+        camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
         camera.target = camera.position + forward_vector;
     }
 }
