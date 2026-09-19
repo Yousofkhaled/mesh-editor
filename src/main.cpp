@@ -1,5 +1,6 @@
 #include "raylib.h"
 #include "raymath.h"
+#include "rlgl.h"
 
 #define RAYGUI_IMPLEMENTATION
 #include "external/raygui.h"
@@ -34,7 +35,7 @@ int main()
 
     Object* my_object = new Object();
     my_object->as_cube = Cube(3, 3, 3);
-    // my_object->transform = set_translation(my_object->transform, Vector3{2, 3, 4});
+    my_object->transform = set_translation(my_object->transform, Vector3{2, 3, 4});
 
     tools_init();
     app_tools.tool_transform.target = my_object;
@@ -55,12 +56,16 @@ int main()
                 tools_render(camera, forward_vector);
 
                 DrawGrid(40, 1.0f);
-                // DrawCube({0, 0, 0}, 3, 3, 3, RED);
-                DrawCubeWires(get_translation(my_object->transform), 
-                                my_object->as_cube.l, 
-                                my_object->as_cube.w, 
-                                my_object->as_cube.h,
-                                GREEN);
+
+                rlPushMatrix();
+                    rlMultMatrixf(MatrixToFloat(my_object->transform));
+                    DrawCubeWires(Vector3Zero(), 
+                                    my_object->as_cube.l, 
+                                    my_object->as_cube.w, 
+                                    my_object->as_cube.h,
+                                    GREEN);
+                rlPopMatrix();
+
             EndMode3D();
         EndDrawing();
     }

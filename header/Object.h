@@ -17,6 +17,7 @@ struct Object
     enum KIND {
         KIND_CUBE,
     };
+    KIND kind;
 
     Cube as_cube;
 };
