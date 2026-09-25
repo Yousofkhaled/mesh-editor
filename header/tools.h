@@ -37,7 +37,7 @@ void tools_input(Camera3D& camera, Vector3& forward_vector)
     tool_zoom_input(camera, forward_vector);
     tool_rotate_input(camera, forward_vector);
 
-    tool_transform_input(app_tools.tool_transform);
+    tool_transform_input(app_tools.tool_transform, camera, forward_vector);
 }
 
 void tools_render(Camera& camera, Vector3& forward_Vector)

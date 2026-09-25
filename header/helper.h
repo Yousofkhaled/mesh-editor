@@ -16,3 +16,9 @@ Vector3 get_translation(const Matrix& mat)
 {
     return Vector3{mat.m12, mat.m13, mat.m14};
 }
+
+Matrix get_translation_matrix(const Matrix& mat)
+{
+    auto t = get_translation(mat);
+    return MatrixTranslate(t.x, t.y, t.z);
+}
