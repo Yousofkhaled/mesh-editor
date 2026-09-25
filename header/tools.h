@@ -1,24 +1,48 @@
+#pragma once
+
 #include "raylib.h"
 #include "raymath.h"
 
 #include "algorithm"
 
+#include "Tool_Transform.h"
+
 // constants
 constexpr float global_sensetivity = 0.01f;
 
+struct App_Tools {
+    Tool_Transform tool_transform{};
+} app_tools;
+
+void tools_init();
+
 void tools_input(Camera3D& camera, Vector3& forward_vector);
+void tools_render(Camera& camera, Vector3& forward_Vector);
 
 void tool_pan_input(Camera3D& camera, Vector3 forward_vector);
 void tool_zoom_input(Camera3D& camera, Vector3 forward_vector);
 void tool_rotate_input(Camera3D& camera, Vector3& forward_vector);
 void reset_scene(Camera3D& camera, Vector3& forward_vector);
 
+void tools_init()
+{
+    app_tools.tool_transform = Tool_Transform();
+}
+
 void tools_input(Camera3D& camera, Vector3& forward_vector)
 {
+    reset_scene(camera, forward_vector);
+
     tool_pan_input(camera, forward_vector);
     tool_zoom_input(camera, forward_vector);
     tool_rotate_input(camera, forward_vector);
-    reset_scene(camera, forward_vector);
+
+    tool_transform_input(app_tools.tool_transform, camera, forward_vector);
+}
+
+void tools_render(Camera& camera, Vector3& forward_Vector)
+{
+    tool_transform_render(app_tools.tool_transform, camera, forward_Vector);
 }
 
 void tool_pan_input(Camera3D& camera, Vector3 forward_vector)
