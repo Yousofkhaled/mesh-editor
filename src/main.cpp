@@ -35,7 +35,7 @@ int main()
 
     Object* my_object = new Object();
     my_object->as_cube = Cube(3, 3, 3);
-    my_object->transform = set_translation(my_object->transform, Vector3{2, 3, 4});
+    my_object->transform = MatrixRotate({0, 0, 1}, 45 *  DEG2RAD) * MatrixTranslate(2, 3, 4);
 
     tools_init();
     app_tools.tool_transform.target = my_object;

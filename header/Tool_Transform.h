@@ -107,18 +107,17 @@ void tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Ve
                 min_dist = ray_collision.distance;
                 selected_axis_index = i;
             }
-            break;
         }
     }
 
     if (selected_axis_index == -1)
     {
-        std::cout << "DID NOT COLLIDE\n";
+        // std::cout << "DID NOT COLLIDE\n";
         return;
     }
     else
     {
-        std::cout << "collided with axis : " << selected_axis_index << "\n";
+        // std::cout << "collided with axis : " << selected_axis_index << "\n";
     }
 
     auto cur_transform = self.target->transform;
@@ -147,9 +146,9 @@ void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const V
 
     // Render bounding boxes of axes
     auto bboxes = axis_bounding_boxes();
+    auto translation_mat = get_translation_matrix(self.target->transform);
     for (auto bbox : bboxes)
     {
-        auto translation_mat = get_translation_matrix(self.target->transform);
         bbox.min = Vector3Transform(bbox.min, translation_mat);
         bbox.max = Vector3Transform(bbox.max, translation_mat);
         DrawBoundingBox(bbox, RED);
