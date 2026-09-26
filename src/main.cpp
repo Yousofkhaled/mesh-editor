@@ -1,10 +1,13 @@
 #include "raylib.h"
 #include "raymath.h"
+#include "rlgl.h"
 
 #define RAYGUI_IMPLEMENTATION
 #include "external/raygui.h"
 
+#include "helper.h"
 #include "tools.h"
+#include "Object.h"
 
 typedef Vector2 vec2;
 typedef Vector3 vec3;
@@ -30,6 +33,13 @@ int main()
         SetTargetFPS(60);
     }
 
+    Object* my_object = new Object();
+    my_object->as_cube = Cube(3, 3, 3);
+    my_object->transform = MatrixRotate({0, 0, 1}, 45 *  DEG2RAD) * MatrixTranslate(2, 3, 4);
+
+    tools_init();
+    app_tools.tool_transform.target = my_object;
+
     while (!WindowShouldClose())
     {
         // Update
@@ -42,9 +52,20 @@ int main()
         BeginDrawing();
             ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
             BeginMode3D(camera);
+
+                tools_render(camera, forward_vector);
+
                 DrawGrid(40, 1.0f);
-                DrawCube({0, 0, 0}, 3, 3, 3, RED);
-                DrawCubeWires({0, 0, 0}, 3, 3, 3, GREEN);
+
+                rlPushMatrix();
+                    rlMultMatrixf(MatrixToFloat(my_object->transform));
+                    DrawCubeWires(Vector3Zero(), 
+                                    my_object->as_cube.l, 
+                                    my_object->as_cube.w, 
+                                    my_object->as_cube.h,
+                                    GREEN);
+                rlPopMatrix();
+
             EndMode3D();
         EndDrawing();
     }

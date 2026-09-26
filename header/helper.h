@@ -1,0 +1,30 @@
+#pragma once
+
+#include "raylib.h"
+#include "raymath.h"
+
+#include <iostream>
+#include <tuple>
+
+Matrix set_translation(const Matrix& mat, Vector3 translation)
+{
+    Matrix ret = mat;
+    std::tie(ret.m12, ret.m13, ret.m14) = {translation.x, translation.y, translation.z};
+    return ret;
+}
+
+Vector3 get_translation(const Matrix& mat)
+{
+    return Vector3{mat.m12, mat.m13, mat.m14};
+}
+
+Matrix get_translation_matrix(const Matrix& mat)
+{
+    auto t = get_translation(mat);
+    return MatrixTranslate(t.x, t.y, t.z);
+}
+
+void print_vector(Vector3 v)
+{
+    std::cout << v.x << ", " << v.y << ", " << v.z;
+}
