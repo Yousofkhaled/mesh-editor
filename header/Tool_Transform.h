@@ -14,6 +14,10 @@ struct Tool_Transform
     static float axis_length;
     static float axis_radius;
 
+    int selected_axis_index = -1;
+    Vector3 start_closest_axis_ray_intersection{};
+    Vector3 start_closest_ray_point{}; // used for tracing only
+
     Object* target{};
 };
 float Tool_Transform::axis_length = 4.0f;
@@ -72,14 +76,49 @@ std::vector<BoundingBox> axis_bounding_boxes()
     return ret;
 }
 
-void tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+Vector3 get_closes_axis_ray_point(
+        Tool_Transform& self, 
+        const Camera3D& camera, 
+        const Vector3& forward_vector,
+        Vector3 axis
+    )
 {
-    if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) == false)
-        return;
-    
+    auto axis_position = get_translation(self.target->transform);
+    auto axis_direction = axis;
+
+    Ray ray_ws = GetScreenToWorldRay(GetMousePosition(), camera);
+    auto camera_position = ray_ws.position;
+    auto camera_direction = ray_ws.direction;
+
+    Vector3 n_hat = Vector3Normalize(Vector3CrossProduct(camera_direction, axis_direction));
+    Vector3 n_hat_2 = Vector3Normalize(Vector3CrossProduct(axis_direction, n_hat));
+
+    // Find how far away the ray is from the closest point to the axis.
+    auto numerator = Vector3DotProduct(Vector3Subtract(axis_position, camera_position), n_hat_2);
+    auto denominator = Vector3DotProduct(camera_direction, n_hat_2);
+
+    // check if lines are parallel, return any point if true.
+    if (abs(denominator) < 0.001)
+    {
+        return axis_position;
+    }
+
+    // this is how much farther the camera is from the closest point to the axis (along the camera ray).
+    auto t_ray = numerator / denominator;
+    auto closest_point_on_ray = camera_position + camera_direction * t_ray;
+
+    self.start_closest_ray_point = closest_point_on_ray;
+
+    // to get the closest point on the axis project the closest point on ray onto the axis.
+    auto t_axis = Vector3DotProduct(closest_point_on_ray - axis_position, axis_direction);
+    auto closest_point_on_axis = axis_position + axis_direction * t_axis;
+
+    return closest_point_on_axis;
+}
+
+void tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{   
     Vector2 mouse_delta = GetMouseDelta();
-    // if (abs (mouse_delta.x) < 0.01f && abs (mouse_delta.y) < 0.01f)
-    //     return;
 
     // eval ray
     Ray ray_ws = GetScreenToWorldRay(GetMousePosition(), camera);
@@ -94,34 +133,49 @@ void tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Ve
     // Direction does not change since we only apply the inverse of the model translation. Do not change it.
 
     Vector3 axes[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-    int selected_axis_index = -1;
-    float min_dist = 1e9;
-    auto bboxes = axis_bounding_boxes();
-    for (int i = 0; i < 3; ++i)
+    
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        auto ray_collision = GetRayCollisionBox(ray_ms, bboxes[i]);
+        float min_dist = 1e9;
+        auto bboxes = axis_bounding_boxes();
+        for (int i = 0; i < 3; ++i)
+        {
+            auto ray_collision = GetRayCollisionBox(ray_ms, bboxes[i]);
 
-        if (ray_collision.hit) {
-            if (ray_collision.distance < min_dist)
-            {
-                min_dist = ray_collision.distance;
-                selected_axis_index = i;
+            if (ray_collision.hit) {
+                if (ray_collision.distance < min_dist)
+                {
+                    min_dist = ray_collision.distance;
+                    self.selected_axis_index = i;
+
+                    self.start_closest_axis_ray_intersection = get_closes_axis_ray_point(self, 
+                                                                                         camera,
+                                                                                         forward_vector, 
+                                                                                         axes[i]);
+                }
             }
         }
+    } else if (IsMouseButtonUp(MOUSE_BUTTON_LEFT)) {
+        self.selected_axis_index = -1;
+        self.start_closest_axis_ray_intersection = {0, 0, 0};
+        self.start_closest_ray_point = {0, 0, 0};
     }
 
-    if (selected_axis_index == -1)
+    if (self.selected_axis_index == -1)
     {
-        // std::cout << "DID NOT COLLIDE\n";
         return;
     }
-    else
-    {
-        // std::cout << "collided with axis : " << selected_axis_index << "\n";
-    }
+    
+    auto cur_closest_axis_ray_intersection = get_closes_axis_ray_point(self, 
+                                                                        camera, 
+                                                                        forward_vector, 
+                                                                        axes[self.selected_axis_index]);
+
+    auto tool_translation = cur_closest_axis_ray_intersection - self.start_closest_axis_ray_intersection;
+
+    self.start_closest_axis_ray_intersection = cur_closest_axis_ray_intersection;
 
     auto cur_transform = self.target->transform;
-    auto tool_translation = axes[selected_axis_index] * 0.01 /* sensetivity */;
 
     auto updated_object_translation = get_translation(self.target->transform) + tool_translation;
     self.target->transform = set_translation(self.target->transform, updated_object_translation);
@@ -152,5 +206,10 @@ void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const V
         bbox.min = Vector3Transform(bbox.min, translation_mat);
         bbox.max = Vector3Transform(bbox.max, translation_mat);
         DrawBoundingBox(bbox, RED);
+    }
+
+    if (self.selected_axis_index != -1)
+    {
+        DrawSphere(self.start_closest_ray_point, 0.2, RED);
     }
 }

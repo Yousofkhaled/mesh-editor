@@ -3,6 +3,7 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#include <iostream>
 #include <tuple>
 
 Matrix set_translation(const Matrix& mat, Vector3 translation)
@@ -21,4 +22,9 @@ Matrix get_translation_matrix(const Matrix& mat)
 {
     auto t = get_translation(mat);
     return MatrixTranslate(t.x, t.y, t.z);
+}
+
+void print_vector(Vector3 v)
+{
+    std::cout << v.x << ", " << v.y << ", " << v.z;
 }
