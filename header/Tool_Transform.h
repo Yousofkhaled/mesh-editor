@@ -15,6 +15,7 @@ struct Tool_Transform
     static float axis_radius;
 
     static float rotation_gizmo_radius;
+    static float rotation_gizmo_thickness;
 
     int selected_axis_index = -1;
     Vector3 start_closest_axis_ray_intersection{};
@@ -25,7 +26,8 @@ struct Tool_Transform
 float Tool_Transform::axis_length = 4.0f;
 float Tool_Transform::axis_radius = 0.1f;
 
-float Tool_Transform::rotation_gizmo_radius = 0.7f;
+float Tool_Transform::rotation_gizmo_radius = 1.0f;
+float Tool_Transform::rotation_gizmo_thickness = 0.08f;
 
 // assumes origin of bboxes is the origin. ray will be transformed to the model space anyway.
 std::vector<BoundingBox> axis_bounding_boxes()
@@ -120,7 +122,7 @@ Vector3 get_closes_axis_ray_point(
     return closest_point_on_axis;
 }
 
-bool translation_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+bool translation_controls_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
 {
     Vector2 mouse_delta = GetMouseDelta();
 
@@ -187,7 +189,7 @@ bool translation_input(Tool_Transform& self, const Camera3D& camera, const Vecto
     return true;
 }
 
-bool rotation_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+bool rotation_controls_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
 {
     return false;
 }
@@ -196,15 +198,15 @@ bool tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Ve
 {   
     if (self.target == nullptr)
         return false;
-    else if (translation_input(self, camera, forward_vector))
+    else if (translation_controls_input(self, camera, forward_vector))
         return true;
-    else if (rotation_input(self, camera, forward_vector))
+    else if (rotation_controls_input(self, camera, forward_vector))
         return true;
 
     return false;
 }
 
-void render_translation(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+void render_translation_controls(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
 {
     Vector3 axes[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
     Color colors[3] = {RED, GREEN, BLUE};
@@ -237,10 +239,57 @@ void render_translation(Tool_Transform& self, const Camera3D& camera, const Vect
     }
 }
 
+void render_rotation_controls(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{
+    Vector3 axes[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    Color colors[3] = {RED, GREEN, BLUE};
+
+    auto center = get_translation(self.target->transform);
+
+    rlDisableBackfaceCulling();
+
+    // rotate around x gizmo
+    DrawRing3D(
+        center, 
+        self.rotation_gizmo_radius, 
+        self.rotation_gizmo_radius - self.rotation_gizmo_thickness, 
+        30,
+        axes[2], 
+        90.0f,
+        colors[0]
+    );
+
+    // rotate around y gizmo
+    DrawRing3D(
+        center, 
+        self.rotation_gizmo_radius, 
+        self.rotation_gizmo_radius - self.rotation_gizmo_thickness, 
+        30,
+        Vector3Zero(), // y rotation gizmo is already where we want it.
+        0.0f,
+        colors[1]
+    );
+
+    // rotate around z gizmo
+    DrawRing3D(
+        center, 
+        self.rotation_gizmo_radius, 
+        self.rotation_gizmo_radius - self.rotation_gizmo_thickness, 
+        30,
+        axes[0], 
+        90.0f,
+        colors[2]
+    );
+
+    rlDrawRenderBatchActive(); // force flush before re-enabling backface culling.
+    rlEnableBackfaceCulling();
+}
+
 void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
 {
     if (self.target == nullptr)
         return;
     
-    render_translation(self, camera, forward_vector);
+    render_translation_controls(self, camera, forward_vector);
+    render_rotation_controls(self, camera, forward_vector);
 }
