@@ -14,14 +14,24 @@ struct Tool_Transform
     static float axis_length;
     static float axis_radius;
 
+    static float rotation_gizmo_radius;
+    static float rotation_gizmo_thickness;
+
     int selected_axis_index = -1;
     Vector3 start_closest_axis_ray_intersection{};
     Vector3 start_closest_ray_point{}; // used for tracing only
+
+    int selected_ring_index = -1;
+    float start_ring_angle{};
+    Vector3 ring_plane_intersection{}; // used for tracing only
 
     Object* target{};
 };
 float Tool_Transform::axis_length = 4.0f;
 float Tool_Transform::axis_radius = 0.1f;
+
+float Tool_Transform::rotation_gizmo_radius = 1.0f;
+float Tool_Transform::rotation_gizmo_thickness = 0.2f;
 
 // assumes origin of bboxes is the origin. ray will be transformed to the model space anyway.
 std::vector<BoundingBox> axis_bounding_boxes()
@@ -116,10 +126,8 @@ Vector3 get_closes_axis_ray_point(
     return closest_point_on_axis;
 }
 
-void tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
-{   
-    Vector2 mouse_delta = GetMouseDelta();
-
+bool translation_controls_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{
     // eval ray
     Ray ray_ws = GetScreenToWorldRay(GetMousePosition(), camera);
 
@@ -163,7 +171,7 @@ void tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Ve
 
     if (self.selected_axis_index == -1)
     {
-        return;
+        return false;
     }
     
     auto cur_closest_axis_ray_intersection = get_closes_axis_ray_point(self, 
@@ -179,9 +187,114 @@ void tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Ve
 
     auto updated_object_translation = get_translation(self.target->transform) + tool_translation;
     self.target->transform = set_translation(self.target->transform, updated_object_translation);
+
+    return true;
 }
 
-void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+void rotate_target_around_axis(Tool_Transform& self, Vector3 axis, float angle /* radian */)
+{
+    // Matrix rotation_only = translate(_global_transform, {0, 0, 0});
+    Matrix translation_only = get_translation_matrix(self.target->transform);
+    Matrix rotation_only = get_rotation_matrix(self.target->transform);
+    Matrix current_spin = MatrixRotate(axis, angle);
+
+    self.target->transform = rotation_only * current_spin * translation_only;
+}
+
+bool rotation_controls_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{
+    // eval ray
+    Ray ray_ws = GetScreenToWorldRay(GetMousePosition(), camera);
+
+    Vector3 axes[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        float min_dist = 1e9;
+        for (int i = 0; i < 3; ++i)
+        {
+            auto ray_collision = GetRayCollisionRing(ray_ws, 
+                                                        get_translation(self.target->transform),
+                                                        axes[i],
+                                                        self.rotation_gizmo_radius - self.rotation_gizmo_thickness,
+                                                        self.rotation_gizmo_radius
+                                                    );
+            if (ray_collision.hit)
+            {
+                if (ray_collision.distance < min_dist)
+                {
+                    min_dist = ray_collision.distance;
+
+                    self.selected_ring_index = i;
+
+                    Vector3 _point_3d = Vector3Subtract(ray_collision.point, get_translation(self.target->transform));
+                    std::vector<float> _point = {_point_3d.x, _point_3d.y, _point_3d.z};
+                    int dropped_axis = i;
+                    _point.erase(_point.begin() + dropped_axis);
+
+                    Vector2 _point_2d = {_point[0], _point[1]};
+                    self.start_ring_angle = atan2(_point_2d.x, _point_2d.y); // radian
+                    self.ring_plane_intersection = ray_collision.point;
+                }
+            }
+        }
+    } else if (IsMouseButtonUp(MOUSE_BUTTON_LEFT)) {
+        self.selected_ring_index = -1;
+        self.start_ring_angle = 0;
+        self.ring_plane_intersection = Vector3Zero();
+    }
+
+    if (self.selected_ring_index == -1)
+    {
+        return false;
+    }
+
+    auto ray_plane_collision = GetRayCollisionPlane(ray_ws, 
+                                get_translation(self.target->transform),
+                                axes[self.selected_ring_index]);
+
+    if (ray_plane_collision.hit == false)
+    {
+        self.selected_ring_index = -1;
+        self.start_ring_angle = 0;
+        self.ring_plane_intersection = Vector3Zero();
+
+        return false;
+    }
+    
+    auto prev_angle = self.start_ring_angle;
+
+    Vector3 _point_3d = Vector3Subtract(ray_plane_collision.point, get_translation(self.target->transform));
+    std::vector<float> _point = {_point_3d.x, _point_3d.y, _point_3d.z};
+    int dropped_axis = self.selected_ring_index;
+    _point.erase(_point.begin() + dropped_axis);
+
+    Vector2 _point_2d = {_point[0], _point[1]};
+    self.start_ring_angle = atan2(_point_2d.x, _point_2d.y); // radian
+    self.ring_plane_intersection = ray_plane_collision.point;
+
+    auto cur_angle = atan2(_point_2d.x, _point_2d.y);
+    auto diff = cur_angle - prev_angle;
+
+    if (self.selected_ring_index != 1) diff *= -1.0f;
+
+    rotate_target_around_axis(self, axes[self.selected_ring_index], diff);
+    return true;
+}
+
+bool tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{   
+    if (self.target == nullptr)
+        return false;
+    else if (translation_controls_input(self, camera, forward_vector))
+        return true;
+    else if (rotation_controls_input(self, camera, forward_vector))
+        return true;
+
+    return false;
+}
+
+void render_translation_controls(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
 {
     Vector3 axes[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
     Color colors[3] = {RED, GREEN, BLUE};
@@ -212,4 +325,64 @@ void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const V
     {
         DrawSphere(self.start_closest_ray_point, 0.2, RED);
     }
+}
+
+void render_rotation_controls(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{
+    Vector3 axes[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    Color colors[3] = {RED, GREEN, BLUE};
+
+    auto center = get_translation(self.target->transform);
+
+    rlDisableBackfaceCulling();
+
+    // rotate around x gizmo
+    DrawRing3D(
+        center, 
+        self.rotation_gizmo_radius, 
+        self.rotation_gizmo_radius - self.rotation_gizmo_thickness, 
+        30,
+        axes[2], 
+        90.0f,
+        colors[0]
+    );
+
+    // rotate around y gizmo
+    DrawRing3D(
+        center, 
+        self.rotation_gizmo_radius, 
+        self.rotation_gizmo_radius - self.rotation_gizmo_thickness, 
+        30,
+        Vector3Zero(), // y rotation gizmo is already where we want it.
+        0.0f,
+        colors[1]
+    );
+
+    // rotate around z gizmo
+    DrawRing3D(
+        center, 
+        self.rotation_gizmo_radius, 
+        self.rotation_gizmo_radius - self.rotation_gizmo_thickness, 
+        30,
+        axes[0], 
+        90.0f,
+        colors[2]
+    );
+
+    rlDrawRenderBatchActive(); // force flush before re-enabling backface culling.
+    rlEnableBackfaceCulling();
+
+    if (self.selected_ring_index != -1)
+    {
+        DrawSphere(self.ring_plane_intersection, 0.2, RED);
+    }
+}
+
+void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{
+    if (self.target == nullptr)
+        return;
+    
+    render_translation_controls(self, camera, forward_vector);
+    render_rotation_controls(self, camera, forward_vector);
 }
