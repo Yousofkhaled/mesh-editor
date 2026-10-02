@@ -31,7 +31,7 @@ float Tool_Transform::axis_length = 4.0f;
 float Tool_Transform::axis_radius = 0.1f;
 
 float Tool_Transform::rotation_gizmo_radius = 1.0f;
-float Tool_Transform::rotation_gizmo_thickness = 0.08f;
+float Tool_Transform::rotation_gizmo_thickness = 0.2f;
 
 // assumes origin of bboxes is the origin. ray will be transformed to the model space anyway.
 std::vector<BoundingBox> axis_bounding_boxes()
@@ -227,15 +227,14 @@ bool rotation_controls_input(Tool_Transform& self, const Camera3D& camera, const
 
                     self.selected_ring_index = i;
 
-                    std::vector<float> _point = {ray_collision.point.x, ray_collision.point.y, ray_collision.point.z};
+                    Vector3 _point_3d = Vector3Subtract(ray_collision.point, get_translation(self.target->transform));
+                    std::vector<float> _point = {_point_3d.x, _point_3d.y, _point_3d.z};
                     int dropped_axis = i;
-                    _point.erase(_point.begin() + i);
+                    _point.erase(_point.begin() + dropped_axis);
 
                     Vector2 _point_2d = {_point[0], _point[1]};
                     self.start_ring_angle = atan2(_point_2d.x, _point_2d.y); // radian
                     self.ring_plane_intersection = ray_collision.point;
-
-
                 }
             }
         }
@@ -250,7 +249,36 @@ bool rotation_controls_input(Tool_Transform& self, const Camera3D& camera, const
         return false;
     }
 
-    rotate_target_around_axis(self, axes[self.selected_ring_index], 3 * DEG2RAD);
+    auto ray_plane_collision = GetRayCollisionPlane(ray_ws, 
+                                get_translation(self.target->transform),
+                                axes[self.selected_ring_index]);
+
+    if (ray_plane_collision.hit == false)
+    {
+        self.selected_ring_index = -1;
+        self.start_ring_angle = 0;
+        self.ring_plane_intersection = Vector3Zero();
+
+        return false;
+    }
+    
+    auto prev_angle = self.start_ring_angle;
+
+    Vector3 _point_3d = Vector3Subtract(ray_plane_collision.point, get_translation(self.target->transform));
+    std::vector<float> _point = {_point_3d.x, _point_3d.y, _point_3d.z};
+    int dropped_axis = self.selected_ring_index;
+    _point.erase(_point.begin() + dropped_axis);
+
+    Vector2 _point_2d = {_point[0], _point[1]};
+    self.start_ring_angle = atan2(_point_2d.x, _point_2d.y); // radian
+    self.ring_plane_intersection = ray_plane_collision.point;
+
+    auto cur_angle = atan2(_point_2d.x, _point_2d.y);
+    auto diff = cur_angle - prev_angle;
+
+    if (self.selected_ring_index != 1) diff *= -1.0f;
+
+    rotate_target_around_axis(self, axes[self.selected_ring_index], diff);
     return true;
 }
 
@@ -343,6 +371,11 @@ void render_rotation_controls(Tool_Transform& self, const Camera3D& camera, cons
 
     rlDrawRenderBatchActive(); // force flush before re-enabling backface culling.
     rlEnableBackfaceCulling();
+
+    if (self.selected_ring_index != -1)
+    {
+        DrawSphere(self.ring_plane_intersection, 0.2, RED);
+    }
 }
 
 void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)

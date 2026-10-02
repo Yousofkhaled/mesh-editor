@@ -104,7 +104,7 @@ RayCollision GetRayCollisionRing(
         return ray_ring_collision;
 
     ray_ring_collision.hit = true;
-    ray_ring_collision.distance = dist;
+    ray_ring_collision.distance = Vector3Distance(ray.position, ray_plane_collision.point);
     ray_ring_collision.normal = plane_normal;
     ray_ring_collision.point = ring_center + Vector3Subtract(ray_plane_collision.point, ring_center);
 
