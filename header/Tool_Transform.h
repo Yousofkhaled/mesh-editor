@@ -21,6 +21,10 @@ struct Tool_Transform
     Vector3 start_closest_axis_ray_intersection{};
     Vector3 start_closest_ray_point{}; // used for tracing only
 
+    int selected_ring_index = -1;
+    float start_ring_angle{};
+    Vector3 ring_plane_intersection{}; // used for tracing only
+
     Object* target{};
 };
 float Tool_Transform::axis_length = 4.0f;
@@ -124,8 +128,6 @@ Vector3 get_closes_axis_ray_point(
 
 bool translation_controls_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
 {
-    Vector2 mouse_delta = GetMouseDelta();
-
     // eval ray
     Ray ray_ws = GetScreenToWorldRay(GetMousePosition(), camera);
 
@@ -189,9 +191,67 @@ bool translation_controls_input(Tool_Transform& self, const Camera3D& camera, co
     return true;
 }
 
+void rotate_target_around_axis(Tool_Transform& self, Vector3 axis, float angle /* radian */)
+{
+    // Matrix rotation_only = translate(_global_transform, {0, 0, 0});
+    Matrix translation_only = get_translation_matrix(self.target->transform);
+    Matrix rotation_only = get_rotation_matrix(self.target->transform);
+    Matrix current_spin = MatrixRotate(axis, angle);
+
+    self.target->transform = rotation_only * current_spin * translation_only;
+}
+
 bool rotation_controls_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
 {
-    return false;
+    // eval ray
+    Ray ray_ws = GetScreenToWorldRay(GetMousePosition(), camera);
+
+    Vector3 axes[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        float min_dist = 1e9;
+        for (int i = 0; i < 3; ++i)
+        {
+            auto ray_collision = GetRayCollisionRing(ray_ws, 
+                                                        get_translation(self.target->transform),
+                                                        axes[i],
+                                                        self.rotation_gizmo_radius - self.rotation_gizmo_thickness,
+                                                        self.rotation_gizmo_radius
+                                                    );
+            if (ray_collision.hit)
+            {
+                if (ray_collision.distance < min_dist)
+                {
+                    min_dist = ray_collision.distance;
+
+                    self.selected_ring_index = i;
+
+                    std::vector<float> _point = {ray_collision.point.x, ray_collision.point.y, ray_collision.point.z};
+                    int dropped_axis = i;
+                    _point.erase(_point.begin() + i);
+
+                    Vector2 _point_2d = {_point[0], _point[1]};
+                    self.start_ring_angle = atan2(_point_2d.x, _point_2d.y); // radian
+                    self.ring_plane_intersection = ray_collision.point;
+
+
+                }
+            }
+        }
+    } else if (IsMouseButtonUp(MOUSE_BUTTON_LEFT)) {
+        self.selected_ring_index = -1;
+        self.start_ring_angle = 0;
+        self.ring_plane_intersection = Vector3Zero();
+    }
+
+    if (self.selected_ring_index == -1)
+    {
+        return false;
+    }
+
+    rotate_target_around_axis(self, axes[self.selected_ring_index], 3 * DEG2RAD);
+    return true;
 }
 
 bool tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
