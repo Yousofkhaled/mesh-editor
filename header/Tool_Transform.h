@@ -14,6 +14,8 @@ struct Tool_Transform
     static float axis_length;
     static float axis_radius;
 
+    static float rotation_gizmo_radius;
+
     int selected_axis_index = -1;
     Vector3 start_closest_axis_ray_intersection{};
     Vector3 start_closest_ray_point{}; // used for tracing only
@@ -22,6 +24,8 @@ struct Tool_Transform
 };
 float Tool_Transform::axis_length = 4.0f;
 float Tool_Transform::axis_radius = 0.1f;
+
+float Tool_Transform::rotation_gizmo_radius = 0.7f;
 
 // assumes origin of bboxes is the origin. ray will be transformed to the model space anyway.
 std::vector<BoundingBox> axis_bounding_boxes()
@@ -116,8 +120,8 @@ Vector3 get_closes_axis_ray_point(
     return closest_point_on_axis;
 }
 
-void tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
-{   
+bool translation_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{
     Vector2 mouse_delta = GetMouseDelta();
 
     // eval ray
@@ -163,7 +167,7 @@ void tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Ve
 
     if (self.selected_axis_index == -1)
     {
-        return;
+        return false;
     }
     
     auto cur_closest_axis_ray_intersection = get_closes_axis_ray_point(self, 
@@ -179,9 +183,26 @@ void tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Ve
 
     auto updated_object_translation = get_translation(self.target->transform) + tool_translation;
     self.target->transform = set_translation(self.target->transform, updated_object_translation);
+
+    return true;
 }
 
-void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+bool rotation_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{
+    return false;
+}
+
+bool tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{   
+    if (translation_input(self, camera, forward_vector))
+        return true;
+    else if (rotation_input(self, camera, forward_vector))
+        return true;
+
+    return false;
+}
+
+void render_translation(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
 {
     Vector3 axes[3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
     Color colors[3] = {RED, GREEN, BLUE};
@@ -212,4 +233,9 @@ void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const V
     {
         DrawSphere(self.start_closest_ray_point, 0.2, RED);
     }
+}
+
+void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
+{
+    render_translation(self, camera, forward_vector);
 }
