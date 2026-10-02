@@ -194,7 +194,9 @@ bool rotation_input(Tool_Transform& self, const Camera3D& camera, const Vector3&
 
 bool tool_transform_input(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
 {   
-    if (translation_input(self, camera, forward_vector))
+    if (self.target == nullptr)
+        return false;
+    else if (translation_input(self, camera, forward_vector))
         return true;
     else if (rotation_input(self, camera, forward_vector))
         return true;
@@ -237,5 +239,8 @@ void render_translation(Tool_Transform& self, const Camera3D& camera, const Vect
 
 void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const Vector3& forward_vector)
 {
+    if (self.target == nullptr)
+        return;
+    
     render_translation(self, camera, forward_vector);
 }
