@@ -37,8 +37,9 @@ int main()
     my_object->as_cube = Cube(3, 3, 3);
     my_object->transform = MatrixRotate({0, 0, 1}, 0 * DEG2RAD) * MatrixTranslate(2, 2, 2);
 
+    app_data.app_objects.push_back(my_object);
+
     tools_init();
-    app_tools.tool_transform.target = my_object;
 
     while (!WindowShouldClose())
     {

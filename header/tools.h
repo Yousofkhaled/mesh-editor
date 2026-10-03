@@ -4,6 +4,7 @@
 #include "raymath.h"
 
 #include "algorithm"
+#include <vector>
 
 #include "Tool_Transform.h"
 
@@ -14,6 +15,10 @@ struct App_Tools {
     Tool_Transform tool_transform{};
 } app_tools;
 
+struct App_Data {
+    std::vector<Object*> app_objects;
+} app_data;
+
 void tools_init();
 
 void tools_input(Camera3D& camera, Vector3& forward_vector);
@@ -22,6 +27,7 @@ void tools_render(Camera& camera, Vector3& forward_Vector);
 void tool_pan_input(Camera3D& camera, Vector3 forward_vector);
 void tool_zoom_input(Camera3D& camera, Vector3 forward_vector);
 void tool_rotate_input(Camera3D& camera, Vector3& forward_vector);
+bool tool_select_input(Camera3D& camera, Vector3& forward_vector);
 void reset_scene(Camera3D& camera, Vector3& forward_vector);
 
 void tools_init()
@@ -37,7 +43,9 @@ void tools_input(Camera3D& camera, Vector3& forward_vector)
     tool_zoom_input(camera, forward_vector);
     tool_rotate_input(camera, forward_vector);
 
-    tool_transform_input(app_tools.tool_transform, camera, forward_vector);
+    
+    if (tool_transform_input(app_tools.tool_transform, camera, forward_vector)) {}
+    else if (tool_select_input(camera, forward_vector)) {}
 }
 
 void tools_render(Camera& camera, Vector3& forward_Vector)
@@ -112,6 +120,55 @@ void tool_rotate_input(Camera3D& camera, Vector3& forward_vector)
 
         camera.target = camera.position + forward_vector;
     }
+}
+
+bool tool_select_input(Camera3D& camera, Vector3& forward_vector)
+{
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        Ray ray_ws = GetScreenToWorldRay(GetMousePosition(), camera);
+
+        Object* target = nullptr;
+        float min_dist = 1e9;
+
+        for (auto object : app_data.app_objects)
+        {
+            if (object->kind == Object::KIND_CUBE)
+            {
+                BoundingBox bbox;
+                bbox.max = {object->as_cube.l / 2.0f, object->as_cube.w / 2.0f, object->as_cube.h / 2.0f};
+                bbox.min = Vector3Negate(bbox.max);
+
+                auto inverse_matrix = MatrixInvert(object->transform);
+                auto inverse_rotation_matrix = MatrixInvert(get_rotation_matrix(object->transform));
+
+                Ray ray_ms;
+                ray_ms.position = Vector3Transform(ray_ws.position, inverse_matrix);
+                ray_ms.direction = Vector3Transform(ray_ws.direction, inverse_rotation_matrix);
+
+                auto ray_collision = GetRayCollisionBox(ray_ms, bbox);
+
+                if (ray_collision.hit && ray_collision.distance < min_dist)
+                {
+                    min_dist = ray_collision.distance;
+                    target = object;
+                }
+            }
+        }
+
+        if (target)
+        {
+            app_tools.tool_transform.target = target;
+            return true;
+        }
+        else
+        {
+            app_tools.tool_transform.target = nullptr;
+            return false;
+        }
+    }
+
+    return false;
 }
 
 void reset_scene(Camera3D& camera, Vector3& forward_vector)
