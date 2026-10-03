@@ -334,6 +334,7 @@ void render_rotation_controls(Tool_Transform& self, const Camera3D& camera, cons
 
     auto center = get_translation(self.target->transform);
 
+    rlDrawRenderBatchActive(); // force flush before disabling backface culling.
     rlDisableBackfaceCulling();
 
     // rotate around x gizmo
