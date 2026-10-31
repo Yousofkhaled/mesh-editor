@@ -62,8 +62,6 @@ int main()
             ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
             BeginMode3D(camera);
 
-                tools_render(camera, forward_vector);
-
                 DrawGrid(40, 1.0f);
 
                 for (auto obj : app_data.app_objects)
@@ -88,6 +86,8 @@ int main()
                         rlPopMatrix();
                     }
                 }
+
+                tools_render(camera, forward_vector);
 
             EndMode3D();
         EndDrawing();

@@ -133,8 +133,12 @@ bool tool_select_input(Camera3D& camera, Vector3& forward_vector)
 
         for (auto object : app_data.app_objects)
         {
-            if (object->kind == Object::KIND_CUBE)
+            switch(object->kind)
             {
+            case Object::KIND_CUBE:
+            {
+                // This evalauates an axis aligned bbox from the start.
+                // Will transform the ray to the model space to check agains this cube.
                 BoundingBox bbox;
                 bbox.max = {object->as_cube.l / 2.0f, object->as_cube.w / 2.0f, object->as_cube.h / 2.0f};
                 bbox.min = Vector3Negate(bbox.max);
@@ -153,6 +157,34 @@ bool tool_select_input(Camera3D& camera, Vector3& forward_vector)
                     min_dist = ray_collision.distance;
                     target = object;
                 }
+                break;
+            }
+            case Object::KIND_MODEL:
+            {
+                // Check for axis aligned bounding box collision first.
+                // If there was a hit, proceed with testing collision using mesh triangles.
+
+                auto model = object->as_model; // alias
+
+                // returns bbox in model space. Transform ray to ms.
+                BoundingBox bbox = GetModelBoundingBox(model);
+
+                auto inverse_matrix = MatrixInvert(object->transform);
+                auto inverse_rotation_matrix = MatrixInvert(get_rotation_matrix(object->transform));
+
+                Ray ray_ms;
+                ray_ms.position = Vector3Transform(ray_ws.position, inverse_matrix);
+                ray_ms.direction = Vector3Transform(ray_ws.direction, inverse_rotation_matrix);
+
+                auto ray_collision = GetRayCollisionBox(ray_ms, bbox);
+
+                if (ray_collision.hit && ray_collision.distance < min_dist)
+                {
+                    min_dist = ray_collision.distance;
+                    target = object;
+                }
+                break;
+            }
             }
         }
 

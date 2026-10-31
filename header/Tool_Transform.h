@@ -384,6 +384,15 @@ void tool_transform_render(Tool_Transform& self, const Camera3D& camera, const V
     if (self.target == nullptr)
         return;
     
+    // Disable depth testing. Tools should not be hidden if the object is too big.
+    // TODO: Revise this. Tools should have depth testing enabled between each other.
+
+    rlDrawRenderBatchActive(); // force flush before changing rendering behavior.
+    rlDisableDepthTest();
+
     render_translation_controls(self, camera, forward_vector);
     render_rotation_controls(self, camera, forward_vector);
+
+    rlDrawRenderBatchActive(); // force flush before restoring rendering behavior.
+    rlEnableDepthTest();
 }
