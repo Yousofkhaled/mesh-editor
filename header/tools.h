@@ -178,11 +178,25 @@ bool tool_select_input(Camera3D& camera, Vector3& forward_vector)
 
                 auto ray_collision = GetRayCollisionBox(ray_ms, bbox);
 
-                if (ray_collision.hit && ray_collision.distance < min_dist)
+                // No bbox hit, no need for a more accuate collistion test.
+                if (ray_collision.hit == false)
                 {
-                    min_dist = ray_collision.distance;
-                    target = object;
+                    break;
                 }
+
+                for (int i = 0; i < model.meshCount; ++i)
+                {
+                    auto mesh = model.meshes[i];
+
+                    ray_collision = GetRayCollisionMesh(ray_ws, mesh, object->transform);
+
+                    if (ray_collision.hit && ray_collision.distance < min_dist)
+                    {
+                        min_dist = ray_collision.distance;
+                        target = object;
+                    }
+                }
+
                 break;
             }
             }
