@@ -33,11 +33,19 @@ int main()
         SetTargetFPS(60);
     }
 
-    Object* my_object = new Object();
-    my_object->as_cube = Cube(3, 3, 3);
-    my_object->transform = MatrixRotate({0, 0, 1}, 0 * DEG2RAD) * MatrixTranslate(2, 2, 2);
+    Object* object_1 = new Object();
+    object_1->kind = Object::KIND_CUBE;
+    object_1->as_cube = Cube(3, 3, 3);
+    object_1->transform = MatrixRotate({0, 0, 1}, 0 * DEG2RAD) * MatrixTranslate(2, 2, 2);
 
-    app_data.app_objects.push_back(my_object);
+    Mesh some_mesh = GenMeshTorus(5.0f, 2.5f, 5, 8);
+    Object* object_2 = new Object();
+    object_2->kind = Object::KIND_MODEL;
+    object_2->as_model = LoadModelFromMesh(some_mesh);
+    object_2->transform = MatrixRotate({0, 0, 1}, 0 * DEG2RAD) * MatrixTranslate(-2, -2, 2);
+    
+    app_data.app_objects.push_back(object_1);
+    app_data.app_objects.push_back(object_2);
 
     tools_init();
 
@@ -58,17 +66,36 @@ int main()
 
                 DrawGrid(40, 1.0f);
 
-                rlPushMatrix();
-                    rlMultMatrixf(MatrixToFloat(my_object->transform));
-                    DrawCubeWires(Vector3Zero(), 
-                                    my_object->as_cube.l, 
-                                    my_object->as_cube.w, 
-                                    my_object->as_cube.h,
-                                    GREEN);
-                rlPopMatrix();
+                for (auto obj : app_data.app_objects)
+                {
+                    if (obj->kind == Object::KIND_CUBE)
+                    {
+                        rlPushMatrix();
+                            rlMultMatrixf(MatrixToFloat(obj->transform));
+                            DrawCubeWires(Vector3Zero(), 
+                                            obj->as_cube.l, 
+                                            obj->as_cube.w, 
+                                            obj->as_cube.h,
+                                            GREEN);
+                        rlPopMatrix();
+                    }
+                    else if (obj->kind == Object::KIND_MODEL)
+                    {
+                        rlPushMatrix();
+                            rlMultMatrixf(MatrixToFloat(obj->transform));
+                            DrawModel(obj->as_model, Vector3Zero(), 1.0, PURPLE);
+                            DrawModelWires(obj->as_model, Vector3Zero(), 1.0, BLUE);
+                        rlPopMatrix();
+                    }
+                }
 
             EndMode3D();
         EndDrawing();
+    }
+
+    for (auto obj: app_data.app_objects)
+    {
+        delete obj;
     }
 
     CloseWindow();
