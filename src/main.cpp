@@ -9,6 +9,8 @@
 #include "tools.h"
 #include "Object.h"
 
+#include "learning-material/ch-04-Bounding-Volumes/4.3-spheres/BoundingSphere.h"
+
 typedef Vector2 vec2;
 typedef Vector3 vec3;
 
